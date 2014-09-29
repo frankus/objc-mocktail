@@ -102,19 +102,25 @@ static NSMutableSet *_allMocktails;
 + (MocktailResponse *)mockResponseForURL:(NSURL *)url method:(NSString *)method;
 {
     NSAssert(url && method, @"Expected a valid URL and method.");
-    
+
+    MocktailResponse *matchingResponse = nil;
+    NSUInteger matchingRegexLength = 0;
+
     NSString *absoluteURL = [url absoluteString];
     for (Mocktail *mocktail in [Mocktail allMocktails]) {
         for (MocktailResponse *response in mocktail.mockResponses) {
             if ([response.absoluteURLRegex numberOfMatchesInString:absoluteURL options:0 range:NSMakeRange(0, absoluteURL.length)] > 0) {
                 if ([response.methodRegex numberOfMatchesInString:method options:0 range:NSMakeRange(0, method.length)] > 0) {
-                    return response;
+                    if (response.absoluteURLRegex.pattern.length > matchingRegexLength) {
+                        matchingResponse = response;
+                        matchingRegexLength = response.absoluteURLRegex.pattern.length;
+                    }
                 }
             }
         }
     }
     
-    return nil;
+    return matchingResponse;
 }
 
 - (void)start;
@@ -164,7 +170,7 @@ static NSMutableSet *_allMocktails;
         if (![[fileURL absoluteString] hasSuffix:MocktailFileExtension]) {
             continue;
         }
-        
+
         [self registerFileAtURL:fileURL];
     }
 }
@@ -199,7 +205,13 @@ static NSMutableSet *_allMocktails;
     response.methodRegex = [NSRegularExpression regularExpressionWithPattern:lines[0] options:NSRegularExpressionCaseInsensitive error:nil];
     response.absoluteURLRegex = [NSRegularExpression regularExpressionWithPattern:lines[1] options:NSRegularExpressionCaseInsensitive error:nil];
     response.statusCode = [lines[2] integerValue];
-    response.headers = @{@"Content-Type":lines[3]};
+    NSMutableDictionary *headers = [[NSMutableDictionary alloc] init];
+    for (NSString *line in [lines subarrayWithRange:NSMakeRange(3, lines.count - 3)]) {
+        NSArray* parts = [line componentsSeparatedByString:@":"];
+        [headers setObject:[[parts lastObject] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]]
+                    forKey:[parts firstObject]];
+    }
+    response.headers = headers;
     response.fileURL = url;
     response.bodyOffset = [headerMatter dataUsingEncoding:originalEncoding].length + 2;
     

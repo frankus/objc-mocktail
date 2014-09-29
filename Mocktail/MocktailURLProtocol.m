@@ -77,7 +77,7 @@
     
     NSArray *cookies = [NSHTTPCookie cookiesWithResponseHeaderFields:headers forURL:self.request.URL];
     [[NSHTTPCookieStorage sharedHTTPCookieStorage] setCookies:cookies forURL:self.request.URL mainDocumentURL:nil];
-    
+
     dispatch_block_t sendResponse = ^{
         if (!self.canceled) {
             [self.client URLProtocol:self didLoadData:body];
